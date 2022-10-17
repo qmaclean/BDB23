@@ -1,2 +1,4 @@
 # BDB23
-Evaluating offensive &amp; defensive line 
+Predicting Gap to classify different stunt types
+
+Identifying different stunt usage as a result. 
