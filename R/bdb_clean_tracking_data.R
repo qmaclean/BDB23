@@ -108,11 +108,25 @@ tracking<-tracking %>%
            team != "football") %>%
     dplyr::select(gameId,playId,nflId,x,y) %>%
     dplyr::rename(snap_x = x,
-                  snap_y = y)
+                  snap_y = y) %>%
+    group_by(gameId,playId,nflId) %>%
+    summarize(snap_x = mean(snap_x,na.rm = T),
+              snap_y = mean(snap_y,na.rm = T))
+  
+  pass_forward<-tracking %>%
+    dplyr::filter(event == "pass_forward",
+                  team != "football") %>%
+    dplyr::select(gameId,playId,nflId,x,y) %>%
+    dplyr::rename(pass_forward_x = x,
+                  pass_forward_y = y) %>%
+    group_by(gameId,playId,nflId) %>%
+    summarize(pass_forward_x = mean(pass_forward_x,na.rm = T),
+              pass_forward_y = mean(pass_forward_y,na.rm = T))
   
   tracking<-tracking %>%
     left_join(los,tracking,by=c("gameId","playId")) %>%
-    left_join(snap,tracking,by=c("gameId","playId","nflId")) 
+    left_join(snap,tracking,by=c("gameId","playId","nflId")) %>%
+    left_join(pass_forward,by=c("gameId","playId","nflId"))
 
 
 
@@ -120,12 +134,10 @@ tracking<-tracking %>%
 
 }
 
+#wk8<-read_csv("data/week8.csv")
+tracking<-bdb_clean_tracking(tracking = read_csv("data/week1.csv"))
 
-tracking<-bdb_clean_tracking(tracking = wk5)
+#rm(wk8)
 
-#tracking %>%
-#  dplyr::group_by(event) %>%
-#  summarize( n = n()) %>%
-#  arrange(desc(n))
 
 
