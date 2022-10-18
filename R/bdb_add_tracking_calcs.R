@@ -13,7 +13,7 @@ library(sparklyr)
 bdb_create_vars_loop <- function(df_tracking){
   
 
-  
+    require(tidyverse)
   ##### start data loop
   df_tracking_list <- df_tracking %>%
     group_split(playId) # split data by week to save memory
@@ -108,6 +108,7 @@ bdb_create_vars_loop <- function(df_tracking){
 
 ### Stunts 
 tr<-read_parquet("wk1_loop.parquet")
+#tr<-read_parquet("wk1_add_metrics.parquet")
 
 
 bdb_add_context_distance<-function(df_tracking){
@@ -144,205 +145,330 @@ bdb_add_context_distance<-function(df_tracking){
 }
 
 
-tr<-bdb_add_context_distance(tr)
-write_parquet(tr<-bdb_add_context_distance(tr),'wk1_add_metrics.parquet')
+#tr<-bdb_add_context_distance(tr)
+#write_parquet(tr<-bdb_add_context_distance(tr),'wk1_add_metrics.parquet')
+
+tr<-read_parquet("wk1_add_metrics.parquet")
+
+tr<-tr %>%
+  dplyr::filter(post_play == 0,
+                pre_play == 0)
 
 
 
-bdb_add_closest_pass_block_players_metrics<-function(df_tracking){
-  
-  require(tidyverse)
-  start_time <- Sys.time()
-  Tackles<-c("LT","RT")
-  Guards<-c("LG","RG")
-  #Center<-c("C")
-  
-  df_tracking<-df_tracking %>%
-    group_by(gameId,playId,nflId1, frameId) %>%  
-    mutate(
-      ## closest pass block
-      ### including pff_role2 would be possible data leakage
-      closest_pass_block_player_id = nflId2[separation == min(separation[same_player == 0 & possessionTeam == team2 & pff_positionLinedUp2 %in% c("LT","RT","LG","RG","C")],na.rm = T)][1],
-      closest_pass_block_position = pff_positionLinedUp2[separation == min(separation[same_player == 0 & possessionTeam == team2 & pff_positionLinedUp2 %in% c("LT","RT","LG","RG","C")],na.rm = T)][1],
-      closest_pass_block_player_separation = min(separation[same_player == 0 & possessionTeam == team2 & nflId2 == closest_pass_block_player_id], na.rm = T),
-      ### closest tackle 
-      closest_pass_block_tackle_player_id = nflId2[separation == min(separation[same_player == 0 & possessionTeam == team2 & pff_positionLinedUp2 %in% Tackles],na.rm = T)][1],
-      closest_pass_block_tackle_player_separation = min(separation[same_player == 0 & possessionTeam == team2 & nflId2 == closest_pass_block_tackle_player_id], na.rm = T),
-      ### closest guards
-      closest_pass_block_guard_player_id = nflId2[separation == min(separation[same_player == 0 & possessionTeam == team2 & pff_positionLinedUp2 %in% Guards],na.rm = T)][1],
-      closest_pass_block_guard_player_separation = min(separation[same_player == 0 & possessionTeam == team2 & nflId2 == closest_pass_block_guard_player_id], na.rm = T),
-      ### center separation; duplicative with los separation
-      #closest_pass_block_center_player_id = nflId2[separation == min(separation[same_player == 0 & possessionTeam == team2& pff_positionLinedUp2 %in% Center],na.rm = T)][1],
-      #closest_pass_block_center_player_separation = min(separation[same_player == 0 & possessionTeam == team2 & nflId2 == closest_pass_block_center_player_id], na.rm = T)
-    ) %>%
-    ungroup()
-  
-  end_time <- Sys.time()
-  print(paste('(bdb_add_closest_pass_block_players_metrics): Took', round(end_time - start_time, 2), 'minutes for week'))
-  
-  return(df_tracking)
-  
-  
-}
 
-
-tr<-bdb_add_closest_pass_block_players_metrics(tr)
-write_parquet(tr,'wk1_add_metrics.parquet')
-
-
-####### separation to non-oline offensive players or skill position
-bdb_add_qb_seperation_metrics<-function(df_tracking){
-  
-  require(tidyverse)
-  start_time <- Sys.time()
-  #### create position vectors for separation metrics
-
-
-  
-  df_tracking<-df_tracking %>%
-    group_by(gameId,playId,nflId1, frameId) %>%  
-    mutate(
-   
-      ## QB separation
-      qb_player_id = nflId2[separation == min(separation[same_player == 0 & possessionTeam == team2 & pff_positionLinedUp2 == "QB"],na.rm = T)][1],
-      qb_separation = min(separation[same_player == 0 & possessionTeam == team2 & pff_positionLinedUp2 == "QB"], na.rm = T),
-    ) %>%
-    ungroup()
-  
-  end_time <- Sys.time()
-  print(paste('Took', round(end_time - start_time, 2), 'minutes for week'))
-  
-  return(df_tracking)
-  
-  
-}
-
-
-tr<-bdb_add_qb_seperation_metrics(tr)
-write_parquet(tr,'wk1_add_metrics.parquet')
-
-
-bdb_add_closest_pass_rush_players_metrics<-function(df_tracking){
+bdb_add_closest_pass_block_player_metrics<-function(df_tracking){
   
   require(tidyverse)
   start_time <- Sys.time()
   
-  Up_EDGE<-c("LEO","ROLB","REO","LOLB")
-  Down_EDGE<-c("RE","LE")
-  LB<-c("LILB","RLB","RILB","LLB","MLB")
-  DTs<-c("DRT","DLT","NLT","NT","NRT")
+  tr<-tr %>%
+  mutate(closest_pass_block_id = ifelse(same_player == 0 & possessionTeam == team2 & pff_positionLinedUp2 %in% c("LT","RT","LG","RG","C"),nflId2,NA))
 
-  
-  df_tracking<-df_tracking %>%
-    group_by(gameId,playId,nflId1, frameId) %>%  
-    mutate(
-      ### closest pass rush
-      closest_pass_rush_player_id = nflId2[separation == min(separation[same_player == 0 & possessionTeam == team2 & pff_positionLinedUp2 %in% c("RCB","SCBR","FS","LCB","SCBoL","SCBiL","FSR","SCBL","FSL","SSL","SS",
-                                                                                                                                                 "SCBiR","SCBoR","SSR",
-                                                                                                                                                 "LEO","ROLB","REO","LOLB",
-                                                                                                                                                 "RE","LE","LILB","RLB","RILB","LLB","MLB",
-                                                                                                                                                 "DRT","DLT","NLT","NT","NRT")],na.rm = T)][1],
-      closest_pass_rush_position = pff_positionLinedUp2[separation == min(separation[same_player == 0 & possessionTeam == team2 & pff_positionLinedUp2 %in% c("RCB","SCBR","FS","LCB","SCBoL","SCBiL","FSR","SCBL","FSL","SSL","SS",
-                                                                                                                                                              "SCBiR","SCBoR","SSR",
-                                                                                                                                                              "LEO","ROLB","REO","LOLB",
-                                                                                                                                                              "RE","LE","LILB","RLB","RILB","LLB","MLB",
-                                                                                                                                                              "DRT","DLT","NLT","NT","NRT")],na.rm = T)][1],
-      closest_pass_rush_player_separation = min(separation[same_player == 0 & possessionTeam == team2 & nflId2 == closest_pass_rush_player_id], na.rm = T),
-    ) %>%
-    ungroup()
-  
-  end_time <- Sys.time()
-  print(paste('Took', round(end_time - start_time, 2), 'minutes for week'))
-  
-  return(df_tracking)
-  
-  
-}
-
-
-tr<-bdb_add_closest_pass_rush_players_metrics(tr)
-write_parquet(tr,'wk1_add_metrics.parquet')
-
-
-
-### add specific position separation
-bdb_add_closest_pass_rush_specific_players_metrics<-function(df_tracking){
-  
-  require(tidyverse)
-  start_time <- Sys.time()
-  
-  Up_EDGE<-c("LEO","ROLB","REO","LOLB")
-  Down_EDGE<-c("RE","LE")
-  LB<-c("LILB","RLB","RILB","LLB","MLB")
-  DTs<-c("DRT","DLT","NLT","NT","NRT")
-  
-  
-  df_tracking<-df_tracking %>%
-    group_by(gameId,playId,nflId1, frameId) %>%  
-    mutate(
-      ### closest pass rush
-      # Up Edge
-      closest_upedge_player_id = nflId2[separation == min(separation[same_player == 0 & defensiveTeam == team2 & pff_positionLinedUp2 %in% Up_EDGE],na.rm = T)][1],
-      closest_upedge_player_separation = min(separation[same_player == 0 & defensiveTeam == team2 & nflId2 == closest_upedge_player_id], na.rm = T),
-      # Down EDGE 
-      closest_down_edge_player_id = nflId2[separation == min(separation[same_player == 0 & defensiveTeam == team2 & pff_positionLinedUp2 %in% Down_EDGE],na.rm = T)][1],
-      closest_down_edge_player_separation = min(separation[same_player == 0 & defensiveTeam == team2 & nflId2 == closest_down_edge_player_id], na.rm = T),
-      # Up LBs                                                       
-      #closest_lb_player_id = nflId2[separation == min(separation[same_player == 0 & defensiveTeam == team2 & pff_positionLinedUp2 %in% LB],na.rm = T)][1],
-      #closest_lb_player_separation = min(separation[same_player == 0 & defensiveTeam == team2 & nflId2 == closest_lb_player_id], na.rm = T),
-      # DTs
-      closest_DTs_player_id = nflId2[separation == min(separation[same_player == 0 & defensiveTeam == team2 & pff_positionLinedUp2 %in% DTs],na.rm = T)][1],
-      closest_DTs_player_separation = min(separation[same_player == 0 & defensiveTeam == team2 & nflId2 == closest_DTs_player_id], na.rm = T),
-    ) %>%
-    ungroup()
-  
-  end_time <- Sys.time()
-  print(paste('Took', round(end_time - start_time, 2), 'minutes for week'))
-  
-  return(df_tracking)
-  
-  
-}
-
-
-##### get theta difference metrics #####
-### get theta difference
-bdb_add_closest_pass_rush_specific_players_metrics<-function(df_tracking){
-  
-  require(tidyverse)
-  start_time <- Sys.time()
-  
-  df_tracking<-df_tracking %>%
-    group_by(gameId,playId,nflId1, frameId) %>%  
-    mutate(
-    player_dir_diff = s_theta1 - s_theta2,
-    closest_pass_block_player_dir_diff = s_theta1 - s_theta2[nflId2 == closest_pass_block_player_id],
-    closest_pass_rush_play_dir_diff = s_theta1 - s_theta2[nflId2 == closest_pass_rush_player_id],
-    qb_play_dir_diff = s_theta1 - s_theta2[nflId2 == qb_player_id]
-    ) %>%
-    ungroup()
+  closest_pass_block<- tr %>%
+    dplyr::filter(complete.cases(closest_pass_block_id)) %>%
+    dplyr::select(gameId,playId,nflId1,frameId,closest_pass_block_id,separation) %>%
+    group_by(gameId,playId,nflId1, frameId) %>%
+    dplyr::summarize(closest_pass_block_separation = min(separation,na.rm = T))
     
+tr<-tr %>%
+  dplyr::left_join(closest_pass_block,by=c("gameId" = "gameId","playId" = "playId","frameId" = "frameId",
+                                      "nflId1" = "nflId1"))
+tr<-tr %>%
+  mutate(closest_pass_block_separation = ifelse(closest_pass_block_separation.y == separation,closest_pass_block_separation.y,NA),
+         closest_pass_block_id = ifelse(closest_pass_block_separation.y == separation,closest_pass_block_id,NA),
+         closest_pass_block_position = ifelse(closest_pass_block_separation == separation,pff_positionLinedUp2,NA)) %>%
+  dplyr::select(-closest_pass_block_separation.x,-closest_pass_block_separation.y) %>%
+  ungroup()
+
+  rm(closest_pass_block)
+  
   end_time <- Sys.time()
-  print(paste('Took', round(end_time - start_time, 2), 'minutes for week'))
+  print(paste('(bdb_add_closest_pass_block_player_metrics): Took', round(end_time - start_time, 2), 'minutes for week'))
+
+  return(df_tracking)
+  
+}
+
+write_parquet(tr,'wk1_add_metrics.parquet')
+tr<-read_parquet('wk1_add_metrics.parquet')
+
+
+closest_add_closest_tackle_metrics<-function(df_tracking){
+  
+  tr<-tr %>%
+  mutate(closest_pass_block_tackle_id = ifelse(same_player == 0 & possessionTeam == team2 & pff_positionLinedUp2 %in% c("LT","RT"),nflId2,NA))  
+         
+closest_pass_block_t<- tr %>%
+  dplyr::filter(complete.cases(closest_pass_block_tackle_id)) %>%
+  dplyr::select(gameId,playId,nflId1,frameId,closest_pass_block_tackle_id,separation) %>%
+  group_by(gameId,playId,nflId1, frameId) %>%
+  dplyr::summarize(closest_pass_block_tackle_separation = min(separation,na.rm = T))
+
+
+tr<-tr %>%
+  dplyr::left_join(closest_pass_block_t,by=c("gameId" = "gameId","playId" = "playId","frameId" = "frameId",
+                                           "nflId1" = "nflId1"))
+
+tr<-tr %>%
+  mutate(closest_pass_block_tackle_separation = ifelse(closest_pass_block_tackle_separation == separation,closest_pass_block_tackle_separation,NA),
+         closest_pass_block_tackle_id = ifelse(closest_pass_block_tackle_separation == separation,closest_pass_block_tackle_id,NA)) %>%
+  ungroup()
+
+rm(closest_pass_block_t)
+
+end_time <- Sys.time()
+print(paste('(closest_add_closest_tackle_metrics): Took', round(end_time - start_time, 2), 'minutes for week'))
+
+return(df_tracking)
+  
+
+}
+
+write_parquet(tr,'wk1_add_metrics.parquet')
+#tr<-read_parquet('wk1_add_metrics.parquet')
+
+
+closest_add_closest_guard_metrics<-function(df_tracking){
+
+tr<-tr %>%
+  mutate(closest_pass_block_guard_id = ifelse(same_player == 0 & possessionTeam == team2 & pff_positionLinedUp2 %in% c("LG","RG"),nflId2,NA))  
+
+closest_pass_block_g<- tr %>%
+  dplyr::filter(complete.cases(closest_pass_block_guard_id)) %>%
+  dplyr::select(gameId,playId,nflId1,frameId,closest_pass_block_guard_id,separation) %>%
+  group_by(gameId,playId,nflId1, frameId) %>%
+  dplyr::summarize(closest_pass_block_guard_separation = min(separation,na.rm = T))
+
+tr<-tr %>%
+  dplyr::left_join(closest_pass_block_g,by=c("gameId" = "gameId","playId" = "playId","frameId" = "frameId",
+                                             "nflId1" = "nflId1"))
+
+tr<-tr %>%
+  mutate(closest_pass_block_guard_separation = ifelse(closest_pass_block_guard_separation == separation,closest_pass_block_guard_separation,NA),
+         closest_pass_block_guard_id = ifelse(closest_pass_block_guard_separation == separation,closest_pass_block_guard_id,NA)) %>%
+  ungroup()
+
+rm(closest_pass_block_g)
+
+end_time <- Sys.time()
+print(paste('(closest_add_closest_guard_metrics): Took', round(end_time - start_time, 2), 'minutes for week'))
+
+return(df_tracking)
+
+}
+
+write_parquet(tr,'wk1_add_metrics.parquet')
+
+####### pass on center given los would be similar?
+
+bdb_add_qb_seperation_metrics<-function(df_tracking){
+
+  
+  tr<-tr %>%
+  mutate(closest_qb_id = ifelse(same_player == 0 & possessionTeam == team2 & pff_positionLinedUp2 %in% c("QB"),nflId2,NA))  
+
+closest_qb<- tr %>%
+  dplyr::filter(complete.cases(closest_qb_id)) %>%
+  dplyr::select(gameId,playId,nflId1,frameId,closest_qb_id,separation) %>%
+  group_by(gameId,playId,nflId1, frameId) %>%
+  dplyr::summarize(closest_qb_separation = min(separation,na.rm = T))
+
+tr<-tr %>%
+  dplyr::left_join(closest_qb,by=c("gameId" = "gameId","playId" = "playId","frameId" = "frameId",
+                                             "nflId1" = "nflId1"))
+
+tr<-tr %>%
+  mutate(closest_qb_separation = ifelse(closest_qb_separation == separation,closest_qb_separation,NA),
+         closest_qb_id = ifelse(closest_qb_separation == separation,closest_qb_id,NA)) %>%
+  ungroup()
+
+rm(closest_qb)
+
+end_time <- Sys.time()
+print(paste('(bdb_add_qb_seperation_metrics): Took', round(end_time - start_time, 2), 'minutes for week'))
+
+return(df_tracking)
+
+}
+
+write_parquet(tr,'wk1_add_metrics.parquet')
+
+
+###### CLOSEST DOWN EDGE PLAYERS ###
+
+bdb_add_closest_down_edge_metrics<-function(df_tracking){
+  
+tr<-tr %>%
+  mutate(closest_down_edge_player_id = ifelse(same_player == 0 & defensiveTeam == team2 & pff_positionLinedUp2 %in% c("RE","LE"),nflId2,NA))  
+
+closest_down_edge<- tr %>%
+  dplyr::filter(complete.cases(closest_down_edge_player_id)) %>%
+  dplyr::select(gameId,playId,nflId1,frameId,closest_down_edge_player_id,separation) %>%
+  group_by(gameId,playId,nflId1, frameId) %>%
+  dplyr::summarize(closest_down_edge_separation = min(separation,na.rm = T))
+
+tr<-tr %>%
+  dplyr::left_join(closest_down_edge,by=c("gameId" = "gameId","playId" = "playId","frameId" = "frameId",
+                                   "nflId1" = "nflId1"))
+
+tr<-tr %>%
+  mutate(closest_down_edge_separation = ifelse(closest_down_edge_separation == separation,closest_down_edge_separation,NA),
+         closest_down_edge_player_id = ifelse(closest_down_edge_separation == separation,closest_down_edge_player_id,NA)) %>%
+  ungroup()
+
+rm(closest_down_edge)
+
+end_time <- Sys.time()
+print(paste('(closest_add_closest_down_edge_metrics): Took', round(end_time - start_time, 2), 'minutes for week'))
+
+return(df_tracking)
+
+}
+
+write_parquet(tr,'wk1_add_metrics.parquet')
+
+
+####### BDB Calculate Up Edge Separation metrics
+bdb_add_closest_up_edge_metrics<-function(df_tracking){
+
+tr<-tr %>%
+  mutate(closest_up_edge_player_id = ifelse(same_player == 0 & defensiveTeam == team2 & pff_positionLinedUp2 %in% c("LEO","ROLB","REO","LOLB"),nflId2,NA))  
+
+closest_up_edge<- tr %>%
+  dplyr::filter(complete.cases(closest_up_edge_player_id)) %>%
+  dplyr::select(gameId,playId,nflId1,frameId,closest_up_edge_player_id,separation) %>%
+  group_by(gameId,playId,nflId1, frameId) %>%
+  dplyr::summarize(closest_up_edge_separation = min(separation,na.rm = T))
+
+tr<-tr %>%
+  dplyr::left_join(closest_up_edge,by=c("gameId" = "gameId","playId" = "playId","frameId" = "frameId",
+                                          "nflId1" = "nflId1"))
+
+tr<-tr %>%
+  mutate(closest_up_edge_separation = ifelse(closest_up_edge_separation == separation,closest_up_edge_separation,NA),
+         closest_up_edge_player_id = ifelse(closest_up_edge_separation == separation,closest_up_edge_player_id,NA)) %>%
+  ungroup()
+
+
+rm(closest_up_edge)
+
+end_time <- Sys.time()
+print(paste('(closest_add_closest_up_edge_metrics): Took', round(end_time - start_time, 2), 'minutes for week'))
 
 return(df_tracking)
 
 }
 
 
-############ OLD ###########
+write_parquet(tr,'wk1_add_metrics.parquet')
+
+
+###### CLOSEST INTERIOR LINEMAN
+tr<-read_parquet('wk1_add_metrics.parquet')
+
+tr<-tr %>%
+  mutate(closest_dt_player_id = ifelse(same_player == 0 & defensiveTeam == team2 & pff_positionLinedUp2 %in% c("DRT","DLT","NLT","NT","NRT"),nflId2,NA))  
+
+closest_dt<- tr %>%
+  dplyr::filter(complete.cases(closest_dt_player_id)) %>%
+  dplyr::select(gameId,playId,nflId1,frameId,closest_dt_player_id,separation) %>%
+  group_by(gameId,playId,nflId1, frameId) %>%
+  dplyr::summarize(closest_dt_separation = min(separation,na.rm = T))
+
+
+tr<-tr %>%
+  dplyr::left_join(closest_dt,by=c("gameId" = "gameId","playId" = "playId","frameId" = "frameId",
+                                        "nflId1" = "nflId1"))
+
+tr<-tr %>%
+  mutate(closest_dt_separation = ifelse(closest_dt_separation == separation,closest_dt_separation,NA),
+         closest_dt_player_id = ifelse(closest_dt_separation == separation,closest_dt_player_id,NA)) %>%
+  ungroup()
+
+rm(closest_dt)
+
+end_time <- Sys.time()
+print(paste('(closest_add_closest_dt_metrics): Took', round(end_time - start_time, 2), 'minutes for week'))
+
+return(df_tracking)
+
+
+write_parquet(tr,'wk1_add_metrics.parquet')
+
+
+##### add player orientation
+###### TO-DO: CREATE FUNCTION!!!
+
+tr<-tr %>%
+  mutate(
+    player_dir_diff = s_theta1 - s_theta2,
+    closest_pass_block_player_dir_diff = ifelse(nflId2 == closest_pass_block_id,s_theta1 - s_theta2,NA),
+    qb_dir_diff = ifelse(nflId2 == closest_qb_id,s_theta1 - s_theta2,NA)
+  )
+
+write_parquet(tr,'wk1_add_metrics.parquet')
 
 
 
 
-   
- 
-DBs<-c("RCB","SCBR","FS","LCB","SCBoL","SCBiL","FSR","SCBL","FSL","SSL","SS",
-                "SCBiR","SCBoR","SSR")
 
+
+tr<-read_parquet('wk1_add_metrics.parquet')
+
+
+rm(wk5)
+
+######## IDENTIFY FRAME WHEN CROSSED LOS
+
+##### create function #####
+
+tr<-tr %>%
+  mutate(dis_los_x = los_x - x1)
+
+
+
+min_los_separation<-tr %>%
+  dplyr::select(gameId,playId,nflId1,frameId,separation_from_los_x,x1,los_x) %>%
+  #dplyr::filter(frameId > )
+  dplyr::mutate(dis_los_x_abs = abs(los_x - x1),
+                dis_los_x = los_x - x1) %>%
+  dplyr::filter(dis_los_x <= 0) %>%
+  dplyr::group_by(gameId,playId,nflId1) %>%
+  dplyr::summarize(separation_from_los_x_min = min(separation_from_los_x),
+                   dis_los_x_max = max(dis_los_x,na.rm = T)) %>%
+  dplyr::inner_join(tr,by=c("gameId" = "gameId","playId" = "playId","nflId1" = "nflId1","dis_los_x_max" = "dis_los_x")) %>%
+  dplyr::select(gameId,playId,nflId1,frameId,dis_los_x_max) %>%
+  dplyr::distinct() %>%
+  dplyr::rename(frame_cross_los = frameId)
+
+tr<-tr %>%
+  dplyr::left_join(min_los_separation,by=c("gameId" = "gameId",
+                                          "playId" = "playId",
+                                          "nflId1" = "nflId1"))
+
+tr<-tr %>%
+  dplyr::mutate(cross_los_bool = ifelse(frameId >= frame_cross_los,1,0))
+
+
+
+write_parquet(tr,'wk1_add_metrics.parquet')
+
+
+##### add frames
         
+#### really cool plot to build argument
+min_los_separation %>%
+  ggplot() +
+  aes(y = -dis_los_x_max,x = frame_cross_los) +
+  geom_jitter(alpha = 0.1) +
+  theme_minimal() +
+  labs(x = "frame (since snap)",
+       y = "Distance Past Line of Scrimmage",
+       title = "Time into Snap to which a defender passes Line of scrimmage") 
 
-        
+
+### normal distribution as expected
 
 
 
