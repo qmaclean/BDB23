@@ -7,7 +7,7 @@ bdb_load_pff_data<-function(){
   
   require(tidyverse)
   
-  pff<-read.csv("data/pffScoutingData.csv") 
+  pff<-read.csv("data/src/pffScoutingData.csv") 
     ##### Join on manual charted data ###
 
   pff_pass_rush<-pff %>%
