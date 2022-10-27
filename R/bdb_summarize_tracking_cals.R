@@ -1,7 +1,7 @@
 
 
-
-tr<read_parquet("wk1_add_metrics.parquet")
+library(arrow)
+#tr<-read_parquet("wk1_add_metrics.parquet")
 
 
 
@@ -21,18 +21,24 @@ bdb_summarize_tracking_metrics<-function(df_tracking){
   
   df_tracking<-df_tracking %>%
   filter(team1 == defensiveTeam & 
-           same_player == 0,
-         cross_los_bool == 0) %>%
+           same_player == 0) %>%
+    mutate(
+      RT = ifelse(closest_pass_block_position == 'RT',1,0),
+      LT = ifelse(closest_pass_block_position == 'LT',1,0),
+      RG = ifelse(closest_pass_block_position == 'RG',1,0),
+      LG = ifelse(closest_pass_block_position == 'LG',1,0),
+      C = ifelse(closest_pass_block_position == 'C',1,0)
+    ) %>%
   group_by(gameId,playId,nflId1) %>%
   summarise(
     # mean
-    var_x = mean(var_x,na.rm = T),
-    var_y = mean(var_y,na.rm = T),
-    var_dir_x = mean(var_dir_x),
-    var_dir_y = mean(var_dir_y),
-    var_dir = mean(var_dir),
-    var_s_theta = mean(var_s_theta),
-    var_s = mean(var_s),
+    mean_var_x = mean(var_x,na.rm = T),
+    mean_var_y = mean(var_y,na.rm = T),
+    mean_var_dir_x = mean(var_dir_x),
+    mean_var_dir_y = mean(var_dir_y),
+    mean_var_dir = mean(var_dir),
+    mean_var_s_theta = mean(var_s_theta),
+    mean_var_s = mean(var_s),
     snap_dis_from_los = mean(snap_dis_from_los,na.rm = T),
     sum_dis = mean(sum_dis),
     pre_play_dis = mean(pre_play_dis),
@@ -59,23 +65,46 @@ bdb_summarize_tracking_metrics<-function(df_tracking){
     qb_separation = mean(closest_qb_separation,na.rm = T),
     closest_down_edge_separation = mean(closest_down_edge_separation,na.rm = T),
     closest_up_edge_separation = mean(closest_up_edge_separation,na.rm = T),
-    closest_dt_separation = mean(closest_dt_separtion,na.rm = T),
+    closest_dt_separation = mean(closest_dt_separation,na.rm = T),
     player_dir_diff = mean(player_dir_diff,na.rm = T),
-    closest_pass_block_player_dir_diff = mean(closet_pass_block_player_dir_diff,na.rm = T),
+    closest_pass_block_player_dir_diff = mean(closest_pass_block_player_dir_diff,na.rm = T),
     qb_dir_diff = mean(qb_dir_diff,na.rm = T),
     #dis_los_x_abs = mean(dis_los_x_abs,na.rm = T),
     dis_los_x_max = mean(dis_los_x_max,na.rm = T),
     frame_cross_los = mean(frame_cross_los,na.rm = T),
-    
-    
-    ##### count percentage of closest pass block percentage per frame
-    #closest_
-    
+    ### sum
+    sum_snap_dis_from_los = sum(snap_dis_from_los,na.rm = T),
+    #### context variables
+    cross_los_bool = mean(cross_los_bool,na.rm = T),
+    ### position closest percentage?
+    RT_pct = sum(RT,na.rm = T) / n_distinct(frameId),
+    LT_pct = sum(LT,na.rm = T) / n_distinct(frameId),
+    LG_pct = sum(LG,na.rm = T) / n_distinct(frameId),
+    RG_pct = sum(RG,na.rm = T) / n_distinct(frameId),
+    C_pct  = sum(C,na.rm = T) / n_distinct(frameId),
+    pff_positionLinedUp = pff_positionLinedUp1[1]
     
     
   ) %>%
   ungroup() %>%
-  dplyr::rename(nflId = nflId1)
+  dplyr::rename(nflId = nflId1) 
+  
+  
+  
+  plays_join<-bdb_load_plays() %>%
+    dplyr::select(gameId,playId,down,yardsToGo,absoluteYardlineNumber,offenseFormation,
+                  personnelO,defendersInBox,personnelD,pff_passCoverage,pff_passCoverageType)
+  
+  df_tracking<-df_tracking %>%
+    dplyr::left_join(plays_join,by=c("gameId" = "gameId",
+                                     "playId" = "playId"))
+  
+  
+  games<-bdb_load_games() %>%
+    dplyr::select(gameId,week)
+  
+  df_tracking<-df_tracking %>%
+    dplyr::left_join(games,by=c("gameId"))
   
   end_time <- Sys.time()
   print(paste('(bdb_summarize_tracking_cals): Took', round(end_time - start_time, 2), 'minutes for week'))
@@ -86,7 +115,13 @@ bdb_summarize_tracking_metrics<-function(df_tracking){
 }
 
 summary_tr<-bdb_summarize_tracking_metrics(tr)
+
+
+
+
+write_parquet(summary_tr,"wk8_final.parquet")
+
   
-  
+ 
   
   
