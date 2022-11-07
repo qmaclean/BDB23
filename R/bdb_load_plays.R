@@ -5,7 +5,7 @@ bdb_load_plays<-function(){
   
   require(tidyverse)
   
-  plays<-read.csv("data/plays.csv") #%>%
+  plays<-read.csv("data/src/plays.csv") #%>%
     #separate(.data$personnelO,c("RBs","TEs","WRs"),sep=",") %>%
     #separate(.data$personnelD,c("DLs","LBs","DBs"),sep=",")
     ##### Join on manual charted data ###
@@ -13,5 +13,5 @@ bdb_load_plays<-function(){
   return(plays)
 }
 
-plays<-bdb_load_plays()
+#plays<-bdb_load_plays()
 
