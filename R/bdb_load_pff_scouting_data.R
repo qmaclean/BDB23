@@ -50,7 +50,7 @@ bdb_load_pff_data<-function(){
     return(pff)
 }
 
-pff<-bdb_load_pff_data()
+#pff<-bdb_load_pff_data()
 
 
 ##### create charting data framework
@@ -58,20 +58,20 @@ pff<-bdb_load_pff_data()
 
 ### Stuntin' Is a Habit ####
 #https://commons.wikimedia.org/wiki/File:American_football_Gaps_and_holes.svg 
-wk5<-read.csv("data/week5.csv")
+#wk5<-read.csv("data/week5.csv")
 
 #players<-read.csv("data/players.csv")
-jersey_numbers<-wk5 %>%
-  dplyr::filter(frameId == 1) %>%
-  dplyr::select(gameId,playId,nflId,jerseyNumber)
+#jersey_numbers<-wk5 %>%
+#  dplyr::filter(frameId == 1) %>%
+#  dplyr::select(gameId,playId,nflId,jerseyNumber)
 
-chart_data<-pff %>%
-  dplyr::filter(pff_role %in% c("Pass Rush")) %>%
-  dplyr::select(gameId,playId,nflId,pff_role,pff_positionLinedUp) %>%
-  dplyr::inner_join(jersey_numbers,by=c("gameId" = "gameId","playId" = "playId",
-                                       "nflId" = "nflId")) 
+#chart_data<-pff %>%
+#  dplyr::filter(pff_role %in% c("Pass Rush")) %>%
+#  dplyr::select(gameId,playId,nflId,pff_role,pff_positionLinedUp) %>%
+#  dplyr::inner_join(jersey_numbers,by=c("gameId" = "gameId","playId" = "playId",
+#                                       "nflId" = "nflId")) 
 
-write.csv(chart_data,"chart_data_wk5.csv",row.names = FALSE)
+#write.csv(chart_data,"chart_data_wk5.csv",row.names = FALSE)
 
 
 ##### export week 1 - 5 for training
