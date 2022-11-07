@@ -1,0 +1,180 @@
+---
+title: "Big Data Bowl '23"
+author: "Quinn MacLean"
+date: '2022-11-01'
+output: html_document
+---
+
+### Introduction
+The offensive line is commonly referred to as a "weak link" system and the most common way to exploit that is the use of "Stunts". A "Stunt" is when a down lineman (DE, EDGE, OLB, NT, DT) crosses the line of scrimmage in an [offensive gap that they are not assigned to](https://commons.wikimedia.org/wiki/File:American_football_Gaps_and_holes.svg). EDGE/OLB rushers are assigned to "C" gaps, Ends assigned to B/C Gaps, DT to A/B gaps and NT assigned to solely A gaps. The stunts main purpose is to confuse the offensive line protection plan on who they should be blocking and ultimately free up a defender to cause pressure on the QB. PFF called out that stunts can ["screw up run fits, rush lanes get out of whack and you're susceptible to losing contain, and lastly if offensive line is prepared, it can remove a defender from the pass rush."](https://www.pff.com/news/pro-defensive-stunts-why-and-who-used-them-best-in-2017)
+PFF also concluded that stunts are generally effective. 
+
+The purpose of this paper is to add to that initial research by: 
+
+- Classifying the different stunts that exist using 2021 NGS tracking data.  
+- Analyzing their usage and efficacy by creating two new metrics for evaluation: *Blocking Rate Under Expected (Block RTUE)* and *Pressure Rate Over Expected (Pressure RTOE)*
+- Understand how blitzes (non-down lineman) are used with stunts.
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.width = 8,fig.height = 8)
+
+
+source("R/bdb_load_games.R")
+source("R/bdb_load_pff_scouting_data.R")
+source("R/bdb_load_plays.R")
+
+source("viz/bdb_table_stunt_performance.R")
+source("viz/bdb_sample_stunt_animations.R")
+### IMPORTED GIF INSTEAD
+#source("viz/bdb_stunt_sample_block.R")
+source("viz/bdb_team_stunt_viz.R")
+source("viz/bdb_team_blitz_effect.R")
+source("viz/bdb_player_rates_viz.R")
+
+```
+
+
+To - do: 
+-Change to highlight lineman
+- Add Target Gap for all lineman
+- Add Team logo to end zones
+- Better format legend
+- Add explanation of result of play and type of stunt
+- Reduce size of dots to see color change better
+
+```{r a1,echo=FALSE,warning=FALSE,message = FALSE}
+
+knitr::include_graphics("figs/sample_stunt.gif")
+```
+
+
+
+
+
+## Gap Classification Model
+To identify the stunt types used in the NFL, we will need to understand the gaps that players came across the line of scrimmage (LOS) at. To do so, I manually labelled 1,000 players with their gap they came across the LOS from weeks 1-6 (I also created a test set of 200 players from week 7-8). I combined the offensive & defensive gap to understand what side of LOS the player crossed at. Utilizing the *PFF_positionLinedUp*, I then created a [gap assignments sheet](add link to spreadsheet) that assigned what gap that player would have pass rushed normally. This led to the creation of the *Gap Classification Model*, which can be used to automatically tag tracking data based on what gap the pass rusher was most at during the play. This model allowed me to classify the pass rush gap for the other ~39k players. 
+
+ A1   A2   B3   B4   C5   C6 
+0.17 0.15 0.16 0.13 0.20 0.19 
+
+Gap model includes a running cumulative of the closest offensive line man to the down line man (RT %, LT %, C%, RG %, LG %), separation from the closest "up" edge (LEO/REO, LOLB/ROLB), separation from closest player (offensive or defensive), and separation from line of scrimmage. The gap classification model achieved a 71.6% accuracy w/ an F1 score of at least 50% or higher for each gap and a balanced accuracy of >72% for each gap. The F1 score is highest for C gaps (0.87) then B gaps (65%), and then A gaps (57.9%). Essentially our model is best at identifying inside to outside movement or vice-versa. Now to classify stunt movements, we compare the classified gap to whether if the gap was an "assigned" gap or forward pass rush gap.  This helps us to label a play for each stunt type that exists based on the classified gap. 42.5% of plays featured no stunts or all down lineman pass rushed through assigned gaps (i.e. Edge through B/C gaps, DT through A/B gaps). The rest of pass rushes were considered stunts and the identified stunts can be grouped into the following stunt categories: 
+
+- **NO STUNT** (~42.5%): All downline man
+- **SOLO STUNTS** (37.2% of plays): 1 down lineman rushes to a non-assigned gap (i.e DL to a "C" gap when they a normally an A gap pass rush)
+- **SWITCH STUNTS** (11.2% of plays): 2 down lineman switch gap assignment on the opposite side of the line (i.e. Left B gap to Right B gap)
+- **TWIST STUNTS** (3.3% of plays): 2 down lineman on the same side of the line switch assignments  (i.e. DE goes to A gap, DL goes to B/C gap)
+- **SINGLE OVERLOAD** (2.2% of plays): 2 down lineman pass rush to the same gap
+- **MULTI-GAP STUNT** (~2% of plays): 3+ down lineman all switched gap assignments to separate gaps
+- **MULTI-GAP STUNT - SINGLE OVERLOAD** (1.6% of plays): 3+ down lineman all switched gap assignments but 2+ down lineman pass rushed to the same gap
+- **MULTI-GAP STUNT - MULTI OVERLOAD** (0.05% of plays): 4+ down lineman all switched gap assignments but 2+ of down lineman pass rushed to through 2 of the same gaps (pretty rare)
+
+
+```{r a2,echo=FALSE,warning=FALSE,message = FALSE}
+
+
+
+#bdb_visualize_two_man_stunts()
+bdb_visualize_sample_stunts()
+
+### facet to visualize sample animation of all unique plays?
+
+
+
+
+```
+
+## Evaluating Stunt Efficacy and Usage
+To analyze the efficacy of a stunt, I've created two additional models to evaluate how effective stunts are. The first is *Expected Block Rate* and create a *Block Rate Under Expected* metric (xBlock Rate - Block Rate). This model is based off of the following variables: 
+
+The 2nd model is to measure the rate of "damage" (i.e. QB Hit, Hurry, or Sack). I acknowledge that a QB pressure is misleading given a QBs ability to elude pressure or not may be dependent on other contextual variables such as coverage, routes ran, QB ability, etc. To start to help to control for that, I created *Expected Pressure Rate* using solely variables related to those rushing the passer. Not surprisingly, the Pressure Rate Over Expected (Pressure Rate - xPressure Rate) is negative on average given the variables we called out prior (QBs ability to elude pass rush, etc.). However, I believe that Pressure Rate Over Expected can still be a useful tool to compare potential damage of a stunt play.  
+
+**To do: Get update screenshot**
+```{r a3,echo=FALSE,message=FALSE,warning=FALSE}
+
+##Show Partial Dependence plot of major variables of model** for Blocked Model
+knitr::include_graphics("figs/bdb_partial_dependence_plot.png")  
+  
+``` 
+
+Overall, I confirmed that stunts were more effective hence why NFL teams have run a stunt on 57.4% of plays. Stunts have a 91.5% block rate (1.73% Block RTUE) and 12% pressure rate (-0.76% Pressure RTOE). Non-stunt pass rushes have a 95.3% block rate (0.69% Block RTUE), 9.8% pressure rate (-0.39 Pressure RTOE). 
+
+The table below shows the performance of each stunt type ordered by usage. We can see that teams don't get too sophisticated in stunt usage although double stunts can lead to reduced block rate, in some cases a high pressure rate, and can see a higher defensive pass EPA/play (although EPA like pressure rate can result from other factors outside of pass rush such as coverage, QB ability, etc.)
+
+**To-do: Visualize BLOCK_RTUE  & Pressure_RTOE correlation to DEF_PASS_EPA ** 
+
+
+
+```{r a4, echo=FALSE,message=FALSE,warning=FALSE}
+
+bdb_stunt_types_table()
+
+
+```
+
+#### Application: Team Performance
+To-do: Fix the Commanders image
+-- Add call out for commanderss
+```{r a5,echo=FALSE,message=FALSE,warning=FALSE}
+
+### team performance w/ stunts?
+bdb_team_stunt_viz()
+
+
+```
+
+
+
+
+#### Application: Individual Performance
+Fix viz: Add actual Pressure Rates? 
+Change colors to match for metrics
+Change metrics to percentages
+```{r a6,echo=FALSE,mssage=FALSE,warning=FALSE}
+
+bdb_player_rates_viz()
+
+```
+
+
+
+```{r a7,echo=FALSE}
+
+### best w/o 
+
+```
+
+
+## Effected with Blitz added to Stunts
+```{r a8,echo=FALSE,message=FALSE,warning=FALSE}
+
+
+bdb_team_blitz_effect()
+
+```
+
+
+```{r a9,echo=FALSE}
+
+
+
+```
+
+
+To-do: 
+Show offensive? 
+
+References: 
+https://operations.nfl.com/media/3671/big-data-bowl-sterken.pdf
+
+https://commons.wikimedia.org/wiki/File:American_football_Gaps_and_holes.svg 
+
+https://www.pff.com/news/pro-defensive-stunts-why-and-who-used-them-best-in-2017
+
+http://insidethepylon.com/football-101/glossary-football-101/2019/05/05/glossary-entry-passing-off-twist-games/
+
+
+
+
