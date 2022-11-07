@@ -5,15 +5,31 @@ library(caret)
 library(nnet)
 library(keras)
 library(tensorflow)
+library(shapr)
+library(shapviz)
+library(treeshap)
+library(edarf)
+library("DALEX")
 
-wk1<-read_parquet("wk1_final.parquet")
-wk2<-read_parquet("wk2_final.parquet")
-wk3<-read_parquet("wk3_final.parquet")
-wk4<-read_parquet("wk4_final.parquet")
-wk5<-read_parquet("wk5_final.parquet")
-wk6<-read_parquet("wk6_final.parquet")
-wk7<-read_parquet("wk7_final.parquet")
-wk8<-read_parquet("wk8_final.parquet")
+#remotes::install_github("slundberg/shap")
+
+#devtools::install_github("mayer79/shapviz")
+
+#devtools::install_github('ModelOriented/treeshap')
+
+#devtools::install_github("zmjones/edarf", subdir = "pkg")
+
+
+source("R/bdb_load_pff_scouting_data.R")
+
+wk1<-read_parquet("data_processed/wk_final/wk1_final.parquet")
+wk2<-read_parquet("data_processed/wk_final/wk2_final.parquet")
+wk3<-read_parquet("data_processed/wk_final/wk3_final.parquet")
+wk4<-read_parquet("data_processed/wk_final/wk4_final.parquet")
+wk5<-read_parquet("data_processed/wk_final/wk5_final.parquet")
+wk6<-read_parquet("data_processed/wk_final/wk6_final.parquet")
+wk7<-read_parquet("data_processed/wk_final/wk7_final.parquet")
+wk8<-read_parquet("data_processed/wk_final/wk8_final.parquet")
 
 df<-rbind(wk1,wk2,wk3,wk4,wk5,wk6,wk7,wk7,wk8)
 rm(wk1,wk2,wk3,wk4,wk5,wk6,wk7,wk8)
@@ -55,7 +71,7 @@ train<-df %>%
   ) %>%
   ungroup()
 
-assignments<-read.csv("gap_assignments.csv") %>%
+assignments<-read.csv("data/charted_data/gap_assignments.csv") %>%
   dplyr::select(-n)
 
 train<-train %>%
@@ -138,10 +154,10 @@ test<-test %>%
 
 test_set<-test %>% dplyr::select(-gameId,-playId,-nflId,-pff_positionLinedUp,-pff_passCoverage,-pff_passCoverageType,
                                  -offenseFormation,-personnelO,-personnelD,-assigned,-down,-defendersInBox,
-                                 -absoluteYardlineNumber,-yardsToGo,-dis_los_x_max)
+                                 -absoluteYardlineNumber,-yardsToGo,-snap_separation,-dis_los_x_max)
 test_id<-test %>% dplyr::select(gameId,playId,nflId,pff_positionLinedUp,pff_passCoverage,pff_passCoverageType,
                                 offenseFormation,personnelO,personnelD,assigned,down,defendersInBox,
-                                absoluteYardlineNumber,yardsToGo,dis_los_x_max)
+                                absoluteYardlineNumber,yardsToGo,snap_separation,dis_los_x_max)
 
 test %>%
   group_by(target_var) %>%
@@ -239,12 +255,16 @@ rf_opt_model<-caret::train(target_var ~ .,
                             verbose = TRUE)
 
 
+rf_opt_model<-readRDS("model_objects/active/gap_rf_model_opt_final.rds")
 test_set$test_predrf_opt<-predict(rf_opt_model,test_set)
 postResample(pred=test_set$test_predrf_opt,obs=test_set$target_var)
 
 confusionMatrix(test_set$target_var,test_set$test_predrf_opt,mode="everything")
 
-saveRDS(rf_opt_model,"gap_rf_model_opt_final.rds")
+#saveRDS(rf_opt_model,"gap_rf_model_opt_final.rds")
+
+
+
 
 #### tune model 
 
@@ -401,6 +421,5 @@ model %>%
   )
 
 
-###
 
 
