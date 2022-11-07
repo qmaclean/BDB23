@@ -1,7 +1,7 @@
 
 
 library(arrow)
-#tr<-read_parquet("wk1_add_metrics.parquet")
+tr<-read_parquet("data_processed/wk_add_metrics/wk1_add_metrics.parquet")
 
 
 
@@ -115,8 +115,6 @@ bdb_summarize_tracking_metrics<-function(df_tracking){
 }
 
 summary_tr<-bdb_summarize_tracking_metrics(tr)
-
-
 
 
 write_parquet(summary_tr,"wk8_final.parquet")
