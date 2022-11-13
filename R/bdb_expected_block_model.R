@@ -2,8 +2,16 @@
 
 library(caret)
 library(rsample)
+library("DALEX")
+library(arrow)
+library(parallel)
+library(mlbench)
+library(doParallel)
+cluster<-makeCluster(detectCores() - 1)
+registerDoParallel(cluster)
 
 #xBlock or xHurry
+source("R/bdb_load_pff_scouting_data.R")
 
 wk1<-read_parquet("data_processed/wk_final/wk1_final.parquet")
 wk2<-read_parquet("data_processed/wk_final/wk2_final.parquet")
@@ -130,6 +138,8 @@ glm<-glm(Blocked ~ .,data=training_set,family=binomial())
 
 summary(glm)
 
+
+
 testing_set$test_pred<-predict(glm,testing_set,type="response")
 
 testing_set %>%
@@ -143,6 +153,14 @@ table(testing_set$test_pred,testing_set$Blocked)
 postResample(testing_set$test_pred,testing_set$Blocked)
 
 ###### suspect it is good at identifying a block vs. a non blocked
+
+#fitControl <- trainControl(## 10-fold CV
+#  method = "cv",
+#  number = 2,
+  #repeats = 5,
+#  summaryFunction = twoClassSummary,
+#  classProbs = TRUE,
+#  allowParallel = TRUE)
 
 fitControl <- trainControl(## 10-fold CV
   method = "repeatedcv",
@@ -158,6 +176,10 @@ gbm<-caret::train(Blocked ~ .,
                    verbose = TRUE,
                    metric = "ROC",
                    trControl = fitControl)
+
+varImp<-summary(gbm)
+
+
 
 testing_set$test_predgbm<-predict(gbm,testing_set,type="raw")
 
@@ -179,13 +201,24 @@ check<-as.data.frame(testing_set_ids$gameId %in% training_set_ids$gameId) %>%
   dplyr::filter(check == TRUE)
 
 
+
 ### model comparison
 rf<-caret::train(Blocked ~ .,
                   data=training_set,
                   method="ranger",
                   verbose = TRUE,
                   metric = "ROC",
-                  trControl = fitControl)
+                  trControl = fitControl,
+                 importance = "impurity"
+                  )
+
+
+varImp<-varImp(rf)
+
+write.csv(varImp,"expected_block_importance.csv",row.names = F)
+
+
+rf<-readRDS("model_objects/active/expected_block_model_rf.rds")
 
 testing_set$test_predrf<-predict(rf,testing_set,type="raw")
 
@@ -206,6 +239,54 @@ bwplot(eb_resamples)
 saveRDS(rf,"expected_block_model_rf.rds")
 
 
-### grid search 
+### Analyze results
+
+block_model<-readRDS("model_objects/active/expected_block_model_rf.rds")
+
+data<-rbind(training_set,testing_set)
+
+
+explainer_rf <- DALEX::explain(model = block_model,  
+                               data = data,
+                               y = data$Blocked,
+                               label = "Blocked: ")
+
+
+names<-varImp %>%
+  top_n(10)
+
+
+
+pdp_rf <- DALEX::model_profile(explainer = explainer_rf, variables = c("closest_pass_block_separation",
+                                                                       "closest_pass_block_tackle_separation",
+                                                                       "mean_var_s",
+                                                                      "mean_var_y"),
+                               type = "partial",
+                               groups = "Blocked")
+
+cp<-pdp_rf$cp_profiles
+ap<-pdp_rf$agr_profiles
+
+as_tibble(pdp_rf$agr_profiles) %>%
+  mutate(`_label_` = str_remove(`_label_`, "workflow_")) %>%
+  ggplot(aes(`_x_`, `_yhat_`, color = `_label_`)) +
+  geom_line(size = 1.2, alpha = 0.8) +
+  facet_wrap(`_vname_`) +
+  labs(
+    x = "Time to complete track",
+    y = "Predicted probability of shortcut",
+    color = NULL,
+    title = "Partial dependence plot for Mario Kart world records",
+    subtitle = "Predictions from a decision tree model"
+  )
+
+plot(pdp_rf) +
+  ggtitle("Partial Dependence Profile ","")
+
+
+
+
+
+
 
 
