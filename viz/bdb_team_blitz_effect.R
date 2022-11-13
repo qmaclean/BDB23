@@ -1,5 +1,6 @@
 
 
+
 bdb_team_blitz_effect<-function(){
 
 library(tidyverse)
@@ -86,7 +87,7 @@ downline_pivot<-downline_df %>%
 team_scheme_rate_metrics<-downline_pivot %>%
   mutate(xBlocked = ifelse(xBlock == "Yes",1,0),
          Blocked = ifelse(Blocked == "Yes",1,0),
-         xPressure = ifelse(xPressure_predictions == "A",1,0),
+         xPressure = ifelse(xPressure_predictions == "Yes",1,0),
          Pressure = ifelse(pressure == "A",1,0),
          stunt_indicator = ifelse(stunt_category != "NO STUNT","STUNT","NO STUNT"),
          blitz_indicator = ifelse(blitz_category != "NO BLITZ","BLITZ","NO BLITZ"),
@@ -97,10 +98,10 @@ team_scheme_rate_metrics<-downline_pivot %>%
                     Block_rate = sum(Blocked) / n(),
                     xPressure_rate = sum(xPressure) / n(),
                     Pressure_rate = sum(Pressure) / n(),
-                    def_epa = mean(def_epa,na.rm = T),
-                    def_pass_epa = mean(def_pass_epa,na.rm = T)) %>%
-  dplyr::mutate(Block_RTUE = xBlock_rate - Block_rate,
-                Pressure_RTOE = Pressure_rate - xPressure_rate,
+                    def_epa = round(mean(def_epa,na.rm = T),3),
+                    def_pass_epa = round(mean(def_pass_epa,na.rm = T),3)) %>%
+  dplyr::mutate(Block_RTUE = round(xBlock_rate - Block_rate,3) * 100,
+                Pressure_RTOE = round(Pressure_rate - xPressure_rate,3),
                 stunt_indicator = as.factor(stunt_indicator)) %>%
   #dplyr::left_join(df.logos,by=c("defensiveTeam" = "team_code")) %>%
   dplyr::select(-xBlock_rate,-xPressure_rate,-def_epa) %>%
@@ -110,15 +111,11 @@ team_scheme_rate_metrics<-downline_pivot %>%
                               "Block_RTUE","Pressure_RTOE","def_pass_epa")) %>%
   ungroup() %>%
   dplyr::left_join(team_df,by=c("defensiveTeam" = "team_abbr")) %>%
-  dplyr::select(team_wordmark,`n_NO STUNT_BLITZ`,
-                `n_NO STUNT_NO BLITZ`,`n_STUNT_BLITZ`,
-                `n_STUNT_NO BLITZ`,`Block_RTUE_NO STUNT_BLITZ`,
-                `Block_RTUE_NO STUNT_NO BLITZ`,`Block_RTUE_STUNT_BLITZ`,
-                `Block_RTUE_STUNT_NO BLITZ`,`Pressure_RTOE_NO STUNT_BLITZ`,
-                `Pressure_RTOE_NO STUNT_NO BLITZ`,`Pressure_RTOE_STUNT_BLITZ`,
+  dplyr::mutate(total_snaps = `n_NO STUNT_BLITZ` + `n_NO STUNT_NO BLITZ` + 
+                                  `n_STUNT_BLITZ` + `n_STUNT_NO BLITZ`) %>%
+  dplyr::select(team_wordmark,`n_STUNT_BLITZ`,`n_STUNT_NO BLITZ`,total_snaps,`Block_RTUE_STUNT_BLITZ`,
+                `Block_RTUE_STUNT_NO BLITZ`,`Pressure_RTOE_STUNT_BLITZ`,
                 `Pressure_RTOE_STUNT_NO BLITZ`,
-                `def_pass_epa_NO STUNT_BLITZ`,
-                `def_pass_epa_NO STUNT_NO BLITZ` ,
                 `def_pass_epa_STUNT_BLITZ`,`def_pass_epa_STUNT_NO BLITZ` , 
                 )
 
@@ -137,25 +134,18 @@ tbl<-team_scheme_rate_metrics %>%
   cols_label(
     team_wordmark = "",
     ### Snaps
-    `n_NO STUNT_BLITZ` = "NO STUNT - BLITZ",
-    `n_NO STUNT_NO BLITZ` = "NO STUNT - NO BLITZ",
-    `n_STUNT_BLITZ` = "STUNT BLITZ",
-    `n_STUNT_NO BLITZ` = "STUNT - NO BLITZ",
+    `n_STUNT_BLITZ` = " w/ BLITZ",
+    `n_STUNT_NO BLITZ` = "Reg. Stunt",
+    total_snaps = "Total",
     ### Block RTUE
-    `Block_RTUE_NO STUNT_BLITZ` = "NO STUNT - BLITZ",
-    `Block_RTUE_NO STUNT_NO BLITZ` = "NO STUNT - NO BLITZ",
-    `Block_RTUE_STUNT_BLITZ` = "STUNT BLITZ",
-    `Block_RTUE_STUNT_NO BLITZ` = "STUNT - NO BLITZ",
+    `Block_RTUE_STUNT_BLITZ` = "w/ BLITZ",
+    `Block_RTUE_STUNT_NO BLITZ` = "Reg. Stunt",
     ### PRESSURE RTOE
-    `Pressure_RTOE_NO STUNT_BLITZ` = "NO STUNT - BLITZ",
-    `Pressure_RTOE_NO STUNT_NO BLITZ` = "NO STUNT - NO BLITZ",
-    `Pressure_RTOE_STUNT_BLITZ` = "STUNT BLITZ",
-    `Pressure_RTOE_STUNT_NO BLITZ` = "STUNT - NO BLITZ",
+    `Pressure_RTOE_STUNT_BLITZ` = "w/ BLITZ",
+    `Pressure_RTOE_STUNT_NO BLITZ` = "Reg. Stunt",
     ### DEF PASS EPA
-    `def_pass_epa_NO STUNT_BLITZ` = "NO STUNT - BLITZ",
-    `def_pass_epa_NO STUNT_NO BLITZ` = "NO STUNT - NO BLITZ",
-    `def_pass_epa_STUNT_BLITZ` = "STUNT BLITZ",
-    `def_pass_epa_STUNT_NO BLITZ` = "STUNT - NO BLITZ",   
+    `def_pass_epa_STUNT_BLITZ` = "w / BLITZ",
+    `def_pass_epa_STUNT_NO BLITZ` = "Reg. Stunt",   
   ) %>%
   tab_options(
     column_labels.background.color = "white",
@@ -183,66 +173,53 @@ tbl<-team_scheme_rate_metrics %>%
   ) %>%
   tab_spanner(
     label = "Snaps",
-    columns = 2:5
+    columns = 2:4
   ) %>%
   tab_spanner(
-    label = "Block RTUE",
-    columns = 6:9
+    label = "BRUE",
+    columns = 5:6
   ) %>%
   tab_spanner(
-    label = "Pressure RTOE",
-    columns = 10:13
+    label = "PROE",
+    columns = 7:8
   ) %>%
   tab_spanner(
     label = "Defensive Pass EPA",
-    columns = 14:17
+    columns = 9:10
   ) %>%
   tab_header(
-    title = md("**Team Stunts & Blitz Usage Comparison**"),
+    title = md("**Stunt Performance with or without additional pressure from Blitz**"),
     subtitle = md("Viz: @QuinnsWisdom")
   ) %>%
-  fmt_number(
-    sep_mark = ",",
-    decimals = 3,
-    columns = 14:17
-  ) %>%
-  fmt_percent(
-    decimals = 2,
-    columns = 6:13
-  ) %>%
-  ### BLOCK RTO
-  data_color(
-    columns = c( `Block_RTUE_NO STUNT_BLITZ`,
-                 `Block_RTUE_NO STUNT_NO BLITZ`,
-                 `Block_RTUE_STUNT_BLITZ`,
-                 `Block_RTUE_STUNT_NO BLITZ`),
-    colors = scales::col_numeric(
-      palette = c("#FFFFFF","#91f086","#48bf53","#11823b","#004d25","#02231c"),
-      domain = NULL
-    )
-  ) %>%
-  data_color(
-    columns = c(  `Pressure_RTOE_NO STUNT_BLITZ`,
-                  `Pressure_RTOE_NO STUNT_NO BLITZ`,
-                  `Pressure_RTOE_STUNT_BLITZ`,
-                  `Pressure_RTOE_STUNT_NO BLITZ`),
-    colors = scales::col_numeric(
-      #palette = c("green","dark green"),
-      palette = c("#FFFFFF","#ffd7b5","#ffb38a","#ff9248","#ff6700"),
-      domain = NULL
-    )
-  ) %>% 
-  data_color(
-    columns = c(    `def_pass_epa_NO STUNT_BLITZ`,
-                    `def_pass_epa_NO STUNT_NO BLITZ`,
-                    `def_pass_epa_STUNT_BLITZ`,
-                    `def_pass_epa_STUNT_NO BLITZ`),
-    colors = scales::col_numeric(
-      #palette = c("green","dark green"),
-      palette = c("#FFFFFF","#bbeeff","#99ccff","#5588ff","#3366ff"),
-      domain = NULL
-    )
-  )
+  gt_color_box(columns = c(
+    Block_RTUE_STUNT_BLITZ,`Block_RTUE_STUNT_NO BLITZ`),
+               domain=range(
+                          team_scheme_rate_metrics$Block_RTUE_STUNT_BLITZ,
+                            team_scheme_rate_metrics$`Block_RTUE_STUNT_NO BLITZ`), 
+    palette = c("#FFFFFF","#91f086","#48bf53","#11823b","#004d25","#02231c"),
+               accuracy = 0.01,suffix="%") %>%
+  gt_color_box(columns = c(
+                     `Pressure_RTOE_STUNT_BLITZ`,
+                      `Pressure_RTOE_STUNT_NO BLITZ`),
+    domain=range(
+                 team_scheme_rate_metrics$`Pressure_RTOE_STUNT_BLITZ`,
+                 team_scheme_rate_metrics$`Pressure_RTOE_STUNT_NO BLITZ`), 
+    palette = c("#FFFFFF","#ffd7b5","#ffb38a","#ff9248","#ff6700"),
+    accuracy = 0.01,suffix="%") %>%
+  gt_color_box(columns = c(
+                        `def_pass_epa_STUNT_BLITZ`,
+                        `def_pass_epa_STUNT_NO BLITZ`),
+    domain=range(
+                 team_scheme_rate_metrics$`def_pass_epa_STUNT_BLITZ`,
+                 team_scheme_rate_metrics$`def_pass_epa_STUNT_NO BLITZ`), 
+    palette = c("#FFFFFF","#bbeeff","#99ccff","#5588ff","#3366ff"),
+    #palette = "rcartocolor::Sunset"
+    accuracy = 0.01)
+
+  
+
+
+
 
 return (tbl)
 
