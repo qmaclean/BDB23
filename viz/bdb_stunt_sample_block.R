@@ -290,7 +290,14 @@ example_play<-example_play %>%
                              "ROLB","NT","DRT","LE","LEO"),xBlock,
                          NA)
          ) %>%
-  dplyr::filter(frameId <= 25)
+  dplyr::filter(frameId <= 45)
+
+
+example_play<-example_play %>%
+  group_by(gameId,playId,nflId) %>%
+  fill(target_var,.direction = "downup") %>%
+  fill(A_prob,.direction = "downup") %>%
+  fill(B_prob,.direction = "downup")
 
 #a<-example_play %>%
 #  group_by(pff_positionLinedUp,target_var) %>%
@@ -399,47 +406,68 @@ df.logos <- read.csv(text = url.logo) %>%
         data = example_play %>% dplyr::filter(team == possessionTeam
                                               ),
         mapping = aes(x = x, y = y, xend = x, yend = y),
-        colour = df_colors$away_2, size = 8, alpha = 0.5,arrow = arrow(length = unit(0.2, "cm"))
+        colour = df_colors$away_2, size = 8, alpha = 0.5#,
+        #arrow = arrow(length = unit(0.2, "cm")
+                     # )
         
       ) +
       geom_segment(
         data = example_play %>% dplyr::filter(team == defensiveTeam),
         mapping = aes(x = x, y = y, xend = x, yend = y),
-        colour = df_colors$home_2, size = 8, alpha = 0.5,arrow = arrow(length = unit(0.2, "cm"))
+        colour = df_colors$home_2, size = 8, alpha = 0.5#,
+       # arrow = arrow(length = unit(0.2, "cm")
+                      #)
       ) +
       geom_point(
         data = example_play %>% dplyr::filter(team == possessionTeam
                                               ),
         mapping = aes(x = x, y = y),
-        fill = "#f8f9fa", colour = df_colors$away_2,
-        shape = 21, alpha = 0.7, size = 8, stroke = 1.5
+        fill = "white",
+        #fill = "#f8f9fa", 
+        #colour = df_colors$away_2,
+        color = "grey",
+        shape = 21, alpha = 0.7, size = 6, stroke = 1.5
       ) +
       geom_point(
         data = example_play %>% dplyr::filter(team == defensiveTeam,
                                               is.na(target_var)),
         mapping = aes(x = x, y = y),
-        fill = "#f8f9fa", colour = df_colors$home_2,
-        shape = 21, alpha = 0.7, size = 8, stroke = 1.5
+        #fill = "#f8f9fa", 
+        fill = "gold",
+        color = "red",
+        #colour = df_colors$home_2,
+        shape = 21, alpha = 0.2, size = 6, stroke = 1.5
       ) +
       geom_point(
         data = example_play %>% dplyr::filter(team == defensiveTeam,
                                               complete.cases(target_var)),
-        mapping = aes(x = x, y = y,color = target_var
-                      #size = B_prob_size
+        mapping = aes(x = x, y = y,
+                      #color = target_var,
+                      fill = target_var,
+                      size = B_prob_size
                       ),
-        fill = "#f8f9fa", 
-        shape = 21, alpha = 0.7, stroke = 1.5, size = 10
+        #fill = "#f8f9fa", 
+        shape = 21, alpha = 1.2, stroke = 1.5, size = 5
       ) +
+   scale_fill_manual(labels = c("A2","B4","C6"),
+                      values = c("orange","yellow","purple")) +
       geom_text(
         data = example_play %>% dplyr::filter(team == possessionTeam),
         mapping = aes(x = x, y = y, label = jerseyNumber),
         colour = df_colors$away_1, size = 3
       ) +
       geom_text(
-        data = example_play %>% dplyr::filter(team == defensiveTeam),
+        data = example_play %>% dplyr::filter(team == defensiveTeam,
+                                              is.na(target_var)),
         mapping = aes(x = x, y = y, label = jerseyNumber),
         colour = df_colors$home_1, size = 3 
       ) +
+   geom_text(
+     data = example_play %>% dplyr::filter(team == defensiveTeam,
+                                           complete.cases(target_var)),
+     mapping = aes(x = x, y = y, label = jerseyNumber),
+     colour = "white", size = 3 
+   ) +  
       geom_point(
         data = example_play %>% dplyr::filter(team == "football"),
         mapping = aes(x = x, y = y),
@@ -448,7 +476,16 @@ df.logos <- read.csv(text = url.logo) %>%
       ) +
        transition_time(frameId) +
       ease_aes('linear') +
-      NULL
+      NULL +
+   theme(
+     legend.position = "top"
+   ) +
+   labs(
+     title = "Sample Stunt Play"
+   ) + 
+   guides(fill = guide_legend(title = "Gap Prediction")) +
+   guides(color = "none",
+          size = "none")
     
       
 
@@ -474,6 +511,7 @@ df.logos <- read.csv(text = url.logo) %>%
     end_pause = 0
   )
   
+  #play_anim
   
   return(play_anim)
   
