@@ -79,7 +79,7 @@ downline_pivot<-downline_df %>%
 team_scheme_rate_metrics<-downline_pivot %>%
   mutate(xBlocked = ifelse(xBlock == "Yes",1,0),
          Blocked = ifelse(Blocked == "Yes",1,0),
-         xPressure = ifelse(xPressure_predictions == "A",1,0),
+         xPressure = ifelse(xPressure_predictions == "Yes",1,0),
          Pressure = ifelse(pressure == "A",1,0),
          stunt_indicator = ifelse(stunt_category != "NO STUNT","STUNT","NO STUNT")) %>%
   dplyr::group_by(defensiveTeam,stunt_indicator) %>%
