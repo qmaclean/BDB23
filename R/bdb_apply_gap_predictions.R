@@ -5,22 +5,23 @@ library(arrow)
 library(caret)
 
 
-wk1<-read_parquet("wk1_final.parquet")
-wk2<-read_parquet("wk2_final.parquet")
-wk3<-read_parquet("wk3_final.parquet")
-wk4<-read_parquet("wk4_final.parquet")
-wk5<-read_parquet("wk5_final.parquet")
-wk6<-read_parquet("wk6_final.parquet")
-wk7<-read_parquet("wk7_final.parquet")
-wk8<-read_parquet("wk8_final.parquet")
+wk1<-read_parquet("data_processed/wk_final/wk1_final.parquet")
+wk2<-read_parquet("data_processed/wk_final/wk2_final.parquet")
+wk3<-read_parquet("data_processed/wk_final/wk3_final.parquet")
+wk4<-read_parquet("data_processed/wk_final/wk4_final.parquet")
+wk5<-read_parquet("data_processed/wk_final/wk5_final.parquet")
+wk6<-read_parquet("data_processed/wk_final/wk6_final.parquet")
+wk7<-read_parquet("data_processed/wk_final/wk7_final.parquet")
+wk8<-read_parquet("data_processed/wk_final/wk8_final.parquet")
 
 df<-rbind(wk1,wk2,wk3,wk4,wk5,wk6,wk7,wk7,wk8)
 rm(wk1,wk2,wk3,wk4,wk5,wk6,wk7,wk8)
 
 #### exclude tagged data
 #### import model
-gap_model<-readRDS("gap_rf_model_opt_final.rds")
+gap_model<-readRDS("model_objects/active/gap_rf_model_opt_final.rds")
 ### apply predictions to rest of data
+
 
 
 ##### 
@@ -38,9 +39,10 @@ df_labelled<-df %>%
                                "playId" = "playId",
                                "nflId" = "nflId")) %>%
   dplyr::filter(complete.cases(Gap)) %>%
-  dplyr::select(-pff_positionLinedUp.y,-rush_direction,-jerseyNumber) %>%
+  dplyr::select(-pff_positionLinedUp.y,-rush_direction,-jerseyNumber,-pff_role) %>%
   dplyr::mutate(target_var = paste0(Gap,Hole)) %>%
   dplyr::select(-Gap,-Hole)
+
 
 
 df_unlabelled<-df %>%
@@ -71,7 +73,7 @@ df_unlabelled<-df %>%
   ) %>%
   ungroup() %>%
   rename(pff_positionLinedUp = pff_positionLinedUp.x) %>%
-  dplyr::select(-jerseyNumber,-Gap,-pff_positionLinedUp.y,-Hole,-rush_direction)
+  dplyr::select(-jerseyNumber,-Gap,-pff_positionLinedUp.y,-Hole,-rush_direction,-pff_role)
 
 
 
@@ -123,9 +125,11 @@ colnames(df_unlabelled)<-colnames(df_labelled)
   
 final_df<-rbind(df_labelled,df_unlabelled)
 
+
+
 ##### add assignments
 
-assignments<-read.csv("gap_assignments.csv") %>%
+assignments<-read.csv("data/charted_data/gap_assignments.csv") %>%
   dplyr::select(-n)
 
 
@@ -141,6 +145,14 @@ final_df<-final_df %>%
                                     "target_var" = "target_var"))
 
 round(prop.table(table(final_df$target_var,final_df$assigned)), 2)
+
+pff<-bdb_load_pff_data() %>%
+  dplyr::select(gameId,playId,nflId,pff_role)
+
+final_df<-final_df %>%
+  dplyr::left_join(pff,by=c("gameId" = "gameId",
+                            "playId" = "playId",
+                            "nflId" = "nflId"))
 
 
 
