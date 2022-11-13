@@ -1,5 +1,5 @@
 
-plays<-bdb_load_plays()
+#plays<-bdb_load_plays()
 
 bdb_visualize_sample_stunts<-function(){
   
@@ -96,27 +96,7 @@ theme_update(
   legend.position = "none"
 )
 
-#play_dir<-df %>%
-#  dplyr::select(gameId,playId,playDirection) %>%
-#  distinct()
 
-
-#check<-downline_df %>%
-#  dplyr::filter(
-#                stunt_type == "C-GAP SWITCH"#,
-#                #assigned == 0
-#                #pff_positionLinedUp %in% c("DRT","DLT","NT")
-#                ) %>%
-#  dplyr::group_by(gameId,playId) %>%
-#  summarize(n = n_distinct(nflId),
-#            mean_var_dir_y = mean(mean_var_dir_y,na.rm = T),
-#            dis = sum(sum_dis)) %>%
-#  dplyr::left_join(play_dir,by = c("gameId" = "gameId",
-#                                   "playId" = "playId"))
-
-
-
-  
 
 
 sample_plays<-df %>%
@@ -192,7 +172,7 @@ play_frames<-sample_plays %>%
   #) +
   geom_point(aes(x = ((xmax)- y),y = (snap_x - (x)),color = target_var)) +
   scale_color_manual(labels = c("A1","A2","B3","B4","C5","C6"),
-                     values = c("dark blue","orange","#0072B2","grey","red","purple")) +
+                     values = c("dark blue","orange","#0072B2","yellow","red","purple")) +
   ylim(ymin,ymax) +
   theme(
     #panel.background = element_rect(fill = "#006400"), # dark green
@@ -234,6 +214,7 @@ play.length.ex<-length(unique(sample_plays$newframeId))
 return(animate(play_frames,fps = 10,nframe = play.length.ex))
 
 }
+
 
 
 
