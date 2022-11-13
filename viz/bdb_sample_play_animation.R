@@ -1,26 +1,25 @@
 
 
-wk5<-read.csv("data/week5.csv")
-
-plays<-
+wk3<-read.csv("data/week3.csv")
 
 
-example_play<-wk5 %>%
-  dplyr::filter(gameId == "2021100700",
-                playId == "301") %>%
+games<-bdb_load_games()
+pff<-bdb_load_pff_data()
+plays<-bdb_load_plays()
+
+
+example_play<-wk3 %>%
+  dplyr::filter(gameId == "2021092609",
+                playId == "1003") %>%
   left_join(plays,by=c("gameId","playId")) %>%
   left_join(pff,by=c("gameId","playId","nflId")) %>%
   dplyr::filter(pff_role %in% c("Pass Block","Pass Rush") |
                   team == "football")
 
 
-example_play<-tracking %>%
-  dplyr::filter(gameId == "2021100700",
-                playId == "301") %>%
-    dplyr::filter(pff_role %in% c("Pass Block","Pass Rush") |
-                    team == "football")
 
 #### insert player ids
+
 
 
 bdb_play_visualization<-function(example_play){
