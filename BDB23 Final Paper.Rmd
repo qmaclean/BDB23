@@ -12,7 +12,7 @@ PFF also concluded that stunts are generally effective.
 The purpose of this paper is to add to that initial research by: 
 
 - Classifying the different stunts that exist using 2021 NGS tracking data.  
-- Analyzing their usage and efficacy by creating two new metrics for evaluation: *Blocking Rate Under Expected (Block RTUE)* and *Pressure Rate Over Expected (Pressure RTOE)*
+- Analyzing their usage and efficacy by creating two new metrics for evaluation: *Blocking Rate Under Expected (BRUE)* and *Pressure Rate Over Expected (PROE)*
 - Understand how blitzes (non-down lineman) are used with stunts.
 
 
@@ -33,6 +33,7 @@ source("viz/bdb_sample_stunt_animations.R")
 source("viz/bdb_team_stunt_viz.R")
 source("viz/bdb_team_blitz_effect.R")
 source("viz/bdb_player_rates_viz.R")
+source("viz/player_top_stunt_types.R")
 
 ```
 
@@ -86,24 +87,34 @@ bdb_visualize_sample_stunts()
 
 ```
 
-## Evaluating Stunt Efficacy and Usage
+## Block Probability & Pressure Probability Model
 To analyze the efficacy of a stunt, I've created two additional models to evaluate how effective stunts are. The first is *Expected Block Rate* and create a *Block Rate Under Expected* metric (xBlock Rate - Block Rate). This model is based off of the following variables: 
+
+Pressures and stats inherently may be related to QB play, so identify Pressure Above Expected may help to identify players who are able to generate pressure relative to expectation. 
 
 The 2nd model is to measure the rate of "damage" (i.e. QB Hit, Hurry, or Sack). I acknowledge that a QB pressure is misleading given a QBs ability to elude pressure or not may be dependent on other contextual variables such as coverage, routes ran, QB ability, etc. To start to help to control for that, I created *Expected Pressure Rate* using solely variables related to those rushing the passer. Not surprisingly, the Pressure Rate Over Expected (Pressure Rate - xPressure Rate) is negative on average given the variables we called out prior (QBs ability to elude pass rush, etc.). However, I believe that Pressure Rate Over Expected can still be a useful tool to compare potential damage of a stunt play.  
 
-**To do: Get update screenshot**
+To-do:
+-Add blurb around model results
+- Talk about partial dependence plots
+
+Best way to create seperation from offensive lineman is through stunt (aka blocking asssignment confusion)
+
+
 ```{r a3,echo=FALSE,message=FALSE,warning=FALSE}
 
 ##Show Partial Dependence plot of major variables of model** for Blocked Model
-knitr::include_graphics("figs/bdb_partial_dependence_plot.png")  
+knitr::include_graphics("figs/bdb_partial_dependence.png")  
   
 ``` 
 
-Overall, I confirmed that stunts were more effective hence why NFL teams have run a stunt on 57.4% of plays. Stunts have a 91.5% block rate (1.73% Block RTUE) and 12% pressure rate (-0.76% Pressure RTOE). Non-stunt pass rushes have a 95.3% block rate (0.69% Block RTUE), 9.8% pressure rate (-0.39 Pressure RTOE). 
+## Evaluating Stunt Efficacy and Usage
+Overall, I confirmed that stunts were more effective hence why NFL teams have run a stunt on 57.4% of plays. Stunts have a 91.5% block rate (1.73% BRUE) and 12% pressure rate (-0.76% PROE). Non-stunt pass rushes have a 95.3% block rate (0.69% BRUE), 9.8% pressure rate (-0.39 PROE). This was confirmed through a t-test ran where a true difference in means was found between stunts & non-stunts of Block probability, Pressure probability and defensive pass EPA. 
+
+*Check PROE numbers*
 
 The table below shows the performance of each stunt type ordered by usage. We can see that teams don't get too sophisticated in stunt usage although double stunts can lead to reduced block rate, in some cases a high pressure rate, and can see a higher defensive pass EPA/play (although EPA like pressure rate can result from other factors outside of pass rush such as coverage, QB ability, etc.)
 
-**To-do: Visualize BLOCK_RTUE  & Pressure_RTOE correlation to DEF_PASS_EPA ** 
 
 
 
@@ -114,10 +125,18 @@ bdb_stunt_types_table()
 
 ```
 
-#### Application: Team Performance
-To-do: Fix the Commanders image
--- Add call out for commanderss
+Players with top BRUE for stunt type: 
+
 ```{r a5,echo=FALSE,message=FALSE,warning=FALSE}
+
+top_stunt_types()
+
+```
+
+
+### Application: Team Performance
+
+```{r a6,echo=FALSE,message=FALSE,warning=FALSE}
 
 ### team performance w/ stunts?
 bdb_team_stunt_viz()
@@ -128,27 +147,39 @@ bdb_team_stunt_viz()
 
 
 
-#### Application: Individual Performance
-Fix viz: Add actual Pressure Rates? 
-Change colors to match for metrics
-Change metrics to percentages
-```{r a6,echo=FALSE,mssage=FALSE,warning=FALSE}
+### Application: Individual Performance
+Although at the play level, a majority of calls result in stunts, participation in stunts/non stunts is much more unbalanced. Malik Jackson participated in the highest percentage of stunts called at 38.7% (Median 24.7%). 
 
-bdb_player_rates_viz()
+As we saw at an aggregate level, Pressure rate & Block rates increases may generally vary but given the longer tails of the distribution, there may be evidence to support that some individual players benefit more so from the play call than others. 
+
+
+As we can see below, these are top players who get a boost in their Pressure Rate relative to expectation in a stunt call vs. a non-stunt call. One of the interesting call outs below is Arik Armstead, whose *actual* pressure rate slightly declines with a stunt call vs. non-stunt call. However, his block rate expectation differences is 2nd highest getting nearly 8.55% high "unblock" rate relative to expectations. The player at #1 is Nick Bosa (+10.81% BRUE difference w/ a stunt, +1.56% PRUE difference w/ a stunt). 49ers ultimately use stunts to create a "pick your poison" choice in who to block between Nick Bosa & Arik Armstead. 
+
+**To - do: Make font size**
+```{r a7,echo=FALSE,mssage=FALSE,warning=FALSE}
+
+knitr::include_graphics("figs/players_with_stunt_boost.png")  
 
 ```
 
 
+Maxx Crosby (+6.30% BRUE w/ a stunt ranks 7th overall)
 
-```{r a7,echo=FALSE}
+Add frame crossed LOS
+```{r a8,echo=FALSE}
 
 ### best w/o 
+knitr::include_graphics("figs/players_with_least_stunt_boost.png")  
 
 ```
 
 
-## Effected with Blitz added to Stunts
-```{r a8,echo=FALSE,message=FALSE,warning=FALSE}
+## Evaluating Stunt Efficacy and Usage *with Blitz*
+
+To - do check def pass epa stats
+T-test & cohens d of blitz & stunts
+geom_density of stunt blitz? 
+```{r a9,echo=FALSE,message=FALSE,warning=FALSE}
 
 
 bdb_team_blitz_effect()
@@ -156,7 +187,7 @@ bdb_team_blitz_effect()
 ```
 
 
-```{r a9,echo=FALSE}
+```{r a10,echo=FALSE}
 
 
 
