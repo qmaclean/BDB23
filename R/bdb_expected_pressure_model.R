@@ -155,6 +155,13 @@ confusionMatrix(testing_set$pressure, testing_set$test_pred,mode="everything")
 
 ###### suspect it is good at identifying a block vs. a non blocked
 
+#fitControl <- trainControl(## 10-fold CV
+#  method = "cv",
+#  number = 2,
+  #repeats = 5,
+#  summaryFunction = twoClassSummary,
+#  classProbs = TRUE)
+
 fitControl <- trainControl(## 10-fold CV
   method = "repeatedcv",
   number = 10,
@@ -187,6 +194,8 @@ gbm_wt<-caret::train(as.factor(pressure) ~ .,
                   metric = "ROC",
                   trControl = fitControl,
                   weights = classWeights)
+
+summary(gbm_wt)
 
 testing_set$test_predgbm_wt<-predict(gbm_wt,testing_set,type="raw")
 
@@ -259,7 +268,7 @@ confusionMatrix(testing_set$pressure, testing_set$test_svm,mode="everything")
 
 fitControl <- trainControl(## 10-fold CV
   method = "cv",
-  number = 4,
+  number = 2,
   #repeats = 5,
   summaryFunction = twoClassSummary,
   classProbs = TRUE,
@@ -319,13 +328,21 @@ rf_sense<-caret::train(as.factor(pressure) ~ .,
                               verbose = TRUE,
                               metric = "Sens",
                               trControl = fitControl,
-                              weights = classWeights)
+                              weights = classWeights,
+                       importance = "impurity")
+
+varImp<-varImp(rf_sense)$importance
+rowlabels<-rownames(varImp)
+
+varImp<-cbind(rowlabels,varImp)
 
 testing_set$test_rf_sense<-predict(rf_sense,testing_set,type="raw")
 postResample(testing_set$test_rf_sense,testing_set$pressure)
 confusionMatrix(testing_set$pressure, testing_set$test_rf_sense,mode="everything")
 
 saveRDS(rf_sense,"ep_random_forest_opt_sens_model.rds")
+
+write.csv(varImp,"expected_pressure_importance.csv",row.names = F)
 
 
 ep_model_list <- list(
